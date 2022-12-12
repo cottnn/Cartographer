@@ -74,8 +74,27 @@ static int init_hook( struct ftrace_hook *hook )
     return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
 static void notrace ftrace_thunk(unsigned long ip, unsigned long parent_ip,
-                                    struct ftrace_ops *ops, struct pt_regs *regs)
+                                    struct ftrace_ops *ops, struct ftrace_regs *fregs)
+{
+    struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);
+    struct pt_regs *regs;
+
+    regs = ftrace_get_regs(fregs);
+
+#if USE_FENTRY_OFFSET
+    regs->ip = (unsigned long) hook->function;
+#else
+    if (!within_module(parent_ip, THIS_MODULE))
+        regs->ip = (unsigned long) hook->function;     
+#endif
+}
+
+#else
+
+static void notrace ftrace_thunk(unsigned long ip, unsigned long parent_ip,
+                                    struct ftrace_ops *ops, struct ftrace_regs *fregs)
 {
     struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);
 
@@ -84,8 +103,10 @@ static void notrace ftrace_thunk(unsigned long ip, unsigned long parent_ip,
 #else
     if (!within_module(parent_ip, THIS_MODULE))
         regs->ip = (unsigned long) hook->function;
-#endif
+#endif        
 }
+
+#endif
 
 static asmlinkage void (*orig_show_map_vma)(struct seq_file *m,
                                           struct vm_area_struct *vma);
@@ -289,9 +310,16 @@ static int cart_startup(void)
         return ret;
 
     show_map_vma_hook.ops.func = ftrace_thunk;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
+    show_map_vma_hook.ops.flags = FTRACE_OPS_FL_SAVE_REGS
+                                  | FTRACE_OPS_FL_RECURSION
+                                  | FTRACE_OPS_FL_IPMODIFY;
+#else
     show_map_vma_hook.ops.flags = FTRACE_OPS_FL_SAVE_REGS
                                   | FTRACE_OPS_FL_RECURSION_SAFE
-                                  | FTRACE_OPS_FL_IPMODIFY;
+                                  | FTRACE_OPS_FL_IPMODIFY;                                  
+#endif
 
     ret = ftrace_set_filter_ip(&show_map_vma_hook.ops, show_map_vma_hook.address, 0, 0);
     if( ret ){
