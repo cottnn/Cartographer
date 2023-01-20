@@ -12,6 +12,8 @@ Kernel 5.7 stops the export of kallsyms functions and has forced us to change th
 
 The new method by [heep](https://github.com/h33p/kallsyms-lp) requires Kernel 5.0 or higher and uses the livepatcher feature.
 
+### Latest tested Kernel - 6.1
+
 ## System Requirements
 * 64bit Linux system
 * Kernel Version >= 5.00( for Kernel Livepatch )
