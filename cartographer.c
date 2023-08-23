@@ -141,17 +141,31 @@ static asmlinkage void cart_show_map_vma(struct seq_file *m,
 
     if( settings.spoof_permissions ){
         cart_print("show_map_vma Hook - Setting permissions on (%s)\n", vma->vm_file->f_path.dentry->d_iname);
+        
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,3,0)
+        vm_flags_clear(vma, VM_READ);
+        vm_flags_clear(vma, VM_WRITE);
+        vm_flags_clear(vma, VM_EXEC);
+
+        vm_flags_set(vma, settings.permissions);
+#else
         vma->vm_flags &= ~VM_READ;
         vma->vm_flags &= ~VM_WRITE;
         vma->vm_flags &= ~VM_EXEC;
 
         vma->vm_flags |= settings.permissions;
+#endif
     }
 
 
     orig_show_map_vma( m, vma );
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,3,0)
+    vm_flags_init(vma, backup_flags);
+#else
     vma->vm_flags = backup_flags;
+#endif
+    
     vma->vm_file = file_backup;
 }
 
